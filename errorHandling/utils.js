@@ -38,7 +38,7 @@ exports.sendErrProd=(err,res)=>{
 };
 
 exports.handleJWTError=()=>
-    new AppError('invalid token,please log in again',401);
+    new AppError('Invalid token,please log in again',401);
 exports.handleJWTExpiredError=()=>
-    new AppError("token Expired ! please log in again",401);
+    new AppError("User Session expired!",401);
   
