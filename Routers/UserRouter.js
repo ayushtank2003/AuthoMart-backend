@@ -4,7 +4,9 @@ const {
     userLoginController, 
     getUserDetailsController,
     authorize,
-    updatePasswordController
+    updatePasswordController,
+    forgetPasswordController,
+    resetPasswordController
 } = require('../Controllers/UserController');
 const UserRouter=express.Router();
 
@@ -12,5 +14,7 @@ const UserRouter=express.Router();
 UserRouter.post('/signUp',userSignupController);
 UserRouter.post('/signIn',userLoginController);
 UserRouter.get("/",authorize ,getUserDetailsController);
-UserRouter.post("/changePassword",authorize, updatePasswordController)
+UserRouter.post("/forgetPassword", forgetPasswordController);
+UserRouter.post("/resetPassword", resetPasswordController);
+UserRouter.post("/changePassword",authorize, updatePasswordController);
 module.exports=UserRouter;

@@ -1,5 +1,3 @@
-
-
 const { handleJWTError, handleJWTExpiredError, sendErrDev, sendErrProd } = require("./utils");
 
 exports.globalErrorHandlingController = (err, req, res, next) => {
@@ -35,4 +33,3 @@ exports.unhandledRoutes=(req , res)=>{
     });
 
 }
-

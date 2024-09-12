@@ -11,8 +11,6 @@ exports.CatchAsync = (fn)  => {
     };
 };
 
-
-
 exports.sendErrDev=(err,res)=>{
     res.status(err.statusCode).json({
         status:err.status,

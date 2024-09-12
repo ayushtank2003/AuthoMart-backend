@@ -4,6 +4,9 @@ const { CatchAsync } = require("../errorHandling/utils");
 const UserModel = require("../Models/UserModule");
 const jwt = require('jsonwebtoken');
 const util = require('util');
+const sendMail=require("../utils/emailUtility");
+const crypto = require('crypto');
+const bcrypt = require('bcrypt');
 
 function signJWT(userid) {
     return jwt.sign(
@@ -21,6 +24,7 @@ exports.authorize = CatchAsync(async function (req, res, next) {
     if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
         token = req.headers.authorization.split(" ")[1];
     }
+
     if (!token) {
         return next(new AppError("You are not logged in!", 401));
     }
@@ -29,6 +33,8 @@ exports.authorize = CatchAsync(async function (req, res, next) {
     const currentUser = await UserModel.findById(decoded.id).select('+passwordChangeAt');
     
     if (!currentUser) {
+
+    console.log(`User not found for ID: ${decoded.id}`);
         return next(new AppError("User not found!", 404));
     }
 
@@ -96,12 +102,86 @@ exports.getUserDetailsController = CatchAsync(async function (req, res, next) {
     });
 });
 
+exports.forgetPasswordController = CatchAsync(async function (req,res,next){
+    const {email}=req.body;
+    if (!email){
+        return next(new AppError("Please enter your email ",400));
+    }
+    const User= await UserModel.findOne({email});
+    if(!User){
+        return next(new AppError("plz check your email!",404));
+    }
+    const resettoken= await User.createPasswordResetToken();
+    await User.save({validateBeforesave: false});// required if you save the equals to operator to update the password field
+
+    const emailOption={
+        email:email,
+        subject:"Your Pasword Reset Token",
+        message:`Please find below your password reset token \n${resettoken}\n
+        Remember to copy and paste this token into the password reset link in the password reset page. \n`
+    };
+
+    await sendMail(emailOption);
+    res.status(200).json({
+        status: "success",
+        message: "Password reset token sent to your email",
+    });
+
+});
+
+exports.resetPasswordController = CatchAsync(async function (req, res, next) {
+    // Step 1:Verify the token
+    const{email,token,newPassword, passwordConfirm } = req.body;
+    const user= await UserModel.findOne({email});
+    if (!user){
+        return next(new AppError("User not found!", 404));
+    }
+
+    //Step 1.1 has the token is expired
+    if (Date.now()>user.passwordResetExpiresAt){
+        return next(new AppError("Token has expired",400));
+
+    } 
+    // Step 1.2 Token provided by usrer is valid or not
+    if(! bcrypt.compare(token , user.passwordResetToken)){
+        return next(new AppError("Invalid token ",401));
+    }
+
+    //Step 2 : Update the Password    
+    if (newPassword !== passwordConfirm) {
+        return next(new AppError("Passwords do not match", 400));
+    }
+
+    user.password = newPassword;
+    user.passwordConfirm = passwordConfirm; // This will be validated and cleared by the pre-save hook
+    
+
+    //Step 3: reset the passwordResetToken
+
+    user.passwordResetToken=undefined;// Save to apply pre-save middleware
+    user.passwordResetExpires=undefined; // Save to apply pre-save middleware
+
+    await user.save(); 
+
+    // Step 4:issue jwt token
+    const Jwt_token = signJWT(user._id);
+
+    // 5. Send response
+    res.status(200).json({
+        status: "success",
+        user,
+        Jwt_token ,
+        message: "Password Reset successfully",
+    });
+
+});
+
 exports.updatePasswordController = CatchAsync(async function (req, res, next) {
-    const { userid } = req; // Ensure 'userid' is set in the request, usually from 'authorize' middleware
-    const { currentPassword, newPassword, passwordConfirm } = req.body;
+    
+    const { email,currentPassword, newPassword, passwordConfirm } = req.body;
 
     // 1. Find the user by ID and include the password field
-    const user = await UserModel.findById(userid).select('+password');
+    const user = await UserModel.findOne({ email }).select('+password');
     if (!user) {
         return next(new AppError("User not found!", 404));
     }
@@ -121,11 +201,16 @@ exports.updatePasswordController = CatchAsync(async function (req, res, next) {
     user.passwordConfirm = passwordConfirm; // This will be validated and cleared by the pre-save hook
     await user.save(); // Save to apply pre-save middleware
 
+    
+    const Jwt_token = signJWT(user._id);
+
     // 5. Send response
     res.status(200).json({
         status: "success",
         user,
+        Jwt_token ,
         message: "Password changed successfully",
     });
-});
 
+
+});

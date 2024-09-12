@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const emailValidator = require('email-validator');
 const bcrypt = require('bcrypt');
-
+const crypto= require('crypto');
 const UserSchema = new mongoose.Schema({
     createdAt: {
         type: Date,
@@ -53,7 +53,9 @@ const UserSchema = new mongoose.Schema({
         type: Date,
         default: Date.now, // No parentheses here
         select: false,
-    }
+    },
+    passwordResetToken:String,
+    passwordResetExpires:Date,
 });
 
 // Pre-save middleware to hash password
@@ -77,6 +79,20 @@ UserSchema.methods.passwordChangeAfter = function(JWTissuedAt) {
         return JWTissuedAt < changedTimestamp;
     }
     return false;
+};
+
+UserSchema.methods.createPasswordResetToken = async function(){
+    // This function does the following
+    // 1 generate password reset
+    // 2 Store the hashed form of this in database
+    // 3 return raw token in the response 
+    // const {email}=req.body;
+    const resettoken = crypto.randomBytes(32).toString('hex'); // generate token 
+
+    this.passwordResetToken =await bcrypt.hash(resettoken, 12);
+    this.passwordResetExpires=Date.now()+10*60*1000;//10 min
+    return resettoken;
+
 };
 
 UserSchema.methods.isCorrectPassword = async function(rawPassword) {
