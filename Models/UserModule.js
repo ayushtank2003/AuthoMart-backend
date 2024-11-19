@@ -5,7 +5,7 @@ const crypto= require('crypto');
 const UserSchema = new mongoose.Schema({
     createdAt: {
         type: Date,
-        default: Date.now, // No parentheses here
+        default: Date.now,
     },
     active: {
         type: Boolean,
